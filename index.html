@@ -1,0 +1,101 @@
+﻿<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>直線運動グラフシミュレーター</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="title-block">
+        <p class="eyebrow">Physics Motion Studio</p>
+        <h1>直線運動グラフシミュレーター</h1>
+      </div>
+      <div class="toolbar">
+        <div class="button-group" aria-label="表示グラフの切り替え">
+          <button type="button" class="graph-toggle is-active" data-graph="x">x-t</button>
+          <button type="button" class="graph-toggle is-active" data-graph="v">v-t</button>
+          <button type="button" class="graph-toggle is-active" data-graph="a">a-t</button>
+        </div>
+        <div class="button-group transport" aria-label="再生操作">
+          <button type="button" id="startButton">スタート</button>
+          <button type="button" id="pauseButton">一時停止</button>
+          <button type="button" id="resetButton">リセット</button>
+        </div>
+        <div class="button-group preset-controls" aria-label="保存データ管理">
+          <button type="button" id="savePresetButton">保存</button>
+          <select id="presetSelect" aria-label="保存データ一覧">
+            <option value="">保存データ</option>
+          </select>
+          <button type="button" id="loadPresetButton">呼び出し</button>
+          <button type="button" id="deletePresetButton">削除</button>
+        </div>
+      </div>
+    </header>
+
+    <main class="workspace">
+      <section class="graphs-panel" aria-label="運動グラフ">
+        <article class="graph-card" data-graph-card="x">
+          <div class="graph-header">
+            <h2>x-t グラフ</h2>
+            <div class="graph-meta">
+              <p>位置 x [m]</p>
+              <button type="button" class="erase-point-button" data-erase-graph="x" hidden>消去</button>
+            </div>
+          </div>
+          <canvas id="xCanvas" class="graph-canvas" width="640" height="360"></canvas>
+        </article>
+        <article class="graph-card" data-graph-card="v">
+          <div class="graph-header">
+            <h2>v-t グラフ</h2>
+            <div class="graph-meta">
+              <p>速度 v [m/s]</p>
+              <button type="button" class="erase-point-button" data-erase-graph="v" hidden>消去</button>
+            </div>
+          </div>
+          <canvas id="vCanvas" class="graph-canvas" width="640" height="360"></canvas>
+        </article>
+        <article class="graph-card" data-graph-card="a">
+          <div class="graph-header">
+            <h2>a-t グラフ</h2>
+            <div class="graph-meta">
+              <p>加速度 a [m/s²]</p>
+              <button type="button" class="erase-point-button" data-erase-graph="a" hidden>消去</button>
+            </div>
+          </div>
+          <canvas id="aCanvas" class="graph-canvas" width="640" height="360"></canvas>
+        </article>
+      </section>
+
+      <section class="motion-panel" aria-label="物体の運動表示">
+        <div class="motion-stage motion-stage-full">
+          <div class="track">
+            <div class="track-toolbar">
+              <label class="strobe-switch" for="strobeToggle">
+                <input type="checkbox" id="strobeToggle" checked>
+                <span class="switch-slider"></span>
+                <span class="switch-text">ストロボ表示</span>
+              </label>
+            </div>
+            <div class="track-line"></div>
+            <div class="axis-arrow"><span>+x</span></div>
+            <div id="originMarker" class="origin-marker"><span>O</span></div>
+            <div id="strobeLayer" class="strobe-layer"></div>
+            <div id="car" class="car current-car" aria-label="運動する車">
+              <div class="car-body"></div>
+              <div class="car-top"></div>
+              <div class="wheel left"></div>
+              <div class="wheel right"></div>
+            </div>
+            <div id="xAxisScale" class="x-axis-scale"></div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
