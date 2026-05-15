@@ -227,7 +227,7 @@ function bindEvents() {
   elements.cancelSubmitButton.addEventListener("click", () => closeOverlay(elements.submitOverlay));
   elements.confirmSubmitButton.addEventListener("click", submitCurrentQuizAnswer);
   elements.closeCelebrationButton.addEventListener("click", () => elements.celebrationLayer.classList.remove("is-visible"));
-  elements.closeResultButton.addEventListener("click", () => closeOverlay(elements.resultOverlay));
+  elements.closeResultButton.addEventListener("click", handleResultClose);
 }
 
 function initializeLogin() {
@@ -392,6 +392,8 @@ function startQuizFromInputCode() {
     firstAttempt: null,
     retryAttempts: [],
     completed: false,
+    finalized: false,
+    finalCorrect: false,
     reviewMode: false
   };
 
@@ -414,17 +416,21 @@ function handleSubmitButtonClick() {
     return;
   }
 
-  const isRetry = Boolean(state.quiz.session.firstAttempt && !state.quiz.session.completed);
+  if (state.quiz.session.finalized) {
+    return;
+  }
+
+  const isRetry = Boolean(state.quiz.session.firstAttempt);
   openSubmitOverlay(isRetry);
 }
 
 function openSubmitOverlay(isRetry) {
   state.quiz.submitting = false;
   state.quiz.submitContext.retry = isRetry;
-  elements.submitOverlayTitle.textContent = isRetry ? "再回答を提出" : "回答を提出";
+  elements.submitOverlayTitle.textContent = isRetry ? "二回目の回答を提出" : "一回目の回答を提出";
   elements.submitOverlayMessage.textContent = isRetry
-    ? "再回答の自信度を選び、回答理由も入力できます。"
-    : "回答の自信度を5段階で選択してください。";
+    ? "話し合いをふまえた今の考えを提出します。自信度を選んでください。必要なら、考えが変わった理由も残せます。"
+    : "今の考えをいったん保存します。正誤はまだ表示せず、このあと話し合いに進みます。自信度を選んでください。";
   elements.retryReasonField.classList.toggle("is-hidden", !isRetry);
   elements.retryReasonInput.value = "";
   elements.confidenceGroup.querySelectorAll(".confidence-option").forEach((item) => item.classList.remove("is-selected"));
@@ -450,6 +456,7 @@ async function submitCurrentQuizAnswer() {
 
   const session = state.quiz.session;
   const answerGraph = session.answerGraph;
+  const isRetry = Boolean(session.firstAttempt);
   const answerSeries = resolveSeriesForArray(session.answerData[answerGraph], session.answerActivePoints[answerGraph]);
   session.answerData[answerGraph] = [...answerSeries];
   const expectedSeries = session.solution[answerGraph];
@@ -468,7 +475,7 @@ async function submitCurrentQuizAnswer() {
   }
 
   try {
-    await sendQuizLog(buildQuizLogRecord(session, attempt, state.quiz.submitContext.retry));
+    await sendQuizLog(buildQuizLogRecord(session, attempt, isRetry));
   } catch (error) {
     console.warn("Quiz log could not be saved, but submission will continue.", error);
   } finally {
@@ -478,30 +485,47 @@ async function submitCurrentQuizAnswer() {
   }
 
   closeOverlay(elements.submitOverlay);
-  if (attempt.isCorrect) {
-    session.completed = true;
+
+  if (!isRetry) {
+    session.completed = false;
+    session.finalized = false;
+    session.finalCorrect = false;
     session.reviewMode = false;
-    state.statusMessage = "正解です。おめでとうございます。";
+    state.statusMessage = "一回目の考えを保存しました。どの点や傾きに注目したか、周りの人と話し合ってから、必要ならグラフを調整して二回目を提出できます。";
     updateStatus();
     updateMotionControls();
     renderAll();
-    elements.celebrationLayer.classList.add("is-visible");
+    showResultOverlay(
+      "考えを持ち寄る時間です",
+      "正誤はまだ表示しません。自分のグラフで大切にしたところを一つ選び、周りの人の見方と比べてみてください。納得できたら、グラフを調整して二回目の回答を提出できます。"
+    );
     return;
   }
 
-  session.completed = false;
-  session.reviewMode = state.quiz.submitContext.retry;
-  state.statusMessage = session.reviewMode
-    ? "不正解です。模範解答を赤線で表示しています。確認後にクイズを終了できます。"
-    : "不正解です。グラフを調整して再回答できます。";
+  session.completed = true;
+  session.finalized = true;
+  session.finalCorrect = attempt.isCorrect;
+  session.reviewMode = !attempt.isCorrect;
+
+  if (attempt.isCorrect) {
+    state.statusMessage = "二回目の回答を確認しました。条件に合うグラフになっています。閉じると正解のグラフを通常編集モードで確認できます。";
+    updateStatus();
+    updateMotionControls();
+    renderAll();
+    showResultOverlay(
+      "条件に合っています",
+      "条件に合うグラフになっています。閉じると、この正解グラフを通常編集モードで続けて確かめられます。"
+    );
+    return;
+  }
+
+  state.statusMessage = "二回目の回答を確認しました。条件とずれているところがあります。赤い線を参考に、自分のグラフとの違いから関係を確かめてみましょう。";
   updateStatus();
   updateMotionControls();
   renderAll();
   showResultOverlay(
-    "不正解でした",
-    session.reviewMode
-      ? "模範解答を赤線で重ねて表示しました。シミュレーションで確認してから「クイズ終了」を押せます。"
-      : "グラフを再編集してから、もう一度「提出」を押してください。"
+    "正解グラフと比べてみましょう",
+    "今回は条件とずれているところがあります。赤い線で条件に合うグラフを重ねています。どの区間の傾きや面積が違っていたかを見比べてください。閉じると、正解グラフを通常編集モードで確認できます。"
   );
 }
 
@@ -560,6 +584,51 @@ function exitQuizMode() {
   updateStatus();
   updateGraphLocks();
   updateMotionControls();
+  renderAll();
+}
+
+function handleResultClose() {
+  if (state.mode === "quiz-participant" && state.quiz.session && state.quiz.session.finalized) {
+    applyQuizSolutionAndExit();
+    return;
+  }
+
+  closeOverlay(elements.resultOverlay);
+}
+
+function applyQuizSolutionAndExit() {
+  const session = state.quiz.session;
+  if (!session) {
+    closeOverlay(elements.resultOverlay);
+    return;
+  }
+
+  const solution = normalizeDataSet(cloneSeriesState(session.solution));
+  const positionSource = session.positionSource || "x";
+
+  closeOverlay(elements.resultOverlay);
+  elements.celebrationLayer.classList.remove("is-visible");
+  state.mode = "normal";
+  state.quiz.session = null;
+  state.data = solution;
+  state.activePoints = normalizeActivePoints({
+    x: Array(TIME_POINTS.length).fill(true),
+    v: Array(TIME_POINTS.length).fill(true),
+    a: Array(ACCELERATION_INTERVALS.length).fill(true)
+  });
+  state.positionSource = positionSource;
+  state.visiblePanels = { x: true, v: true, a: true, motion: true };
+  state.strobeEnabled = true;
+  elements.strobeToggle.checked = true;
+  state.statusMessage = "正解のグラフを通常編集モードで表示しています。気になる点を自由に動かして、関係を確かめられます。";
+  clearUndoStack();
+  clearSelection();
+  updateRanges();
+  resetPlayback();
+  updateStatus();
+  updateGraphLocks();
+  updateMotionControls();
+  syncCanvasResolution();
   renderAll();
 }
 
@@ -1798,8 +1867,8 @@ function updateMotionControls() {
   elements.presetSelect.hidden = inQuiz;
   elements.createQuizButton.hidden = inQuiz;
   elements.joinQuizButton.hidden = inQuiz || inQuizBuild;
-  elements.submitQuizButton.hidden = !inQuiz;
-  elements.endQuizButton.hidden = !(inQuiz && state.quiz.session && state.quiz.session.reviewMode);
+  elements.submitQuizButton.hidden = !inQuiz || Boolean(state.quiz.session && state.quiz.session.finalized);
+  elements.endQuizButton.hidden = true;
   elements.strobeToggle.disabled = !shouldShowMotion();
   updatePanelVisibility();
 }
