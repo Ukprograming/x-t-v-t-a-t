@@ -3,7 +3,7 @@ const ACCELERATION_INTERVALS = Array.from({ length: 10 }, (_, index) => index);
 const STORAGE_KEY = "physics-motion-presets-v3";
 const NICKNAME_KEY = "physics-motion-nickname";
 const LOCAL_LOG_STORAGE_KEY = "physics-motion-local-quiz-logs";
-const QUIZ_LOG_ENDPOINT = "https://script.google.com/macros/s/AKfycbwhY5faYfZm--4F3W3Zmd8o3a5w9lq6xK9ey3Mgd1ZFghOhklPQpySRpwA7K_PuA9mT/exec";
+const QUIZ_LOG_ENDPOINT = "https://script.google.com/macros/s/AKfycbzI8GE3HG_8kpv5snLSC3n5_uZai0xpTDsz_oIxa8v1_iv-aWqPOiSbkaZpK-2N9KSI/exec";
 const QUIZ_CODE_PREFIX = "QZ3-";
 const ANSWER_TOLERANCE = 0.35;
 const RANGE_EXPAND_DELAY_MS = 1400;
