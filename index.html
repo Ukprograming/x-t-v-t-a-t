@@ -10,7 +10,6 @@
   <div class="app-shell">
     <header class="topbar">
       <div class="title-block">
-        <p class="eyebrow">Physics App Lab</p>
         <h1>直線運動グラフシミュレーター</h1>
       </div>
       <div class="toolbar">
@@ -18,11 +17,13 @@
           <button type="button" class="graph-toggle is-active" data-graph="x">x-t</button>
           <button type="button" class="graph-toggle is-active" data-graph="v">v-t</button>
           <button type="button" class="graph-toggle is-active" data-graph="a">a-t</button>
+          <button type="button" class="graph-toggle is-active" data-graph="motion">運動</button>
         </div>
         <div class="button-group transport" aria-label="再生操作">
           <button type="button" id="startButton">スタート</button>
           <button type="button" id="pauseButton">一時停止</button>
           <button type="button" id="resetButton">リセット</button>
+          <button type="button" id="undoButton" disabled>戻す</button>
         </div>
         <div class="button-group preset-controls" aria-label="保存データ管理">
           <button type="button" id="savePresetButton">保存</button>
@@ -32,8 +33,18 @@
           <button type="button" id="loadPresetButton">呼び出し</button>
           <button type="button" id="deletePresetButton">削除</button>
         </div>
+        <div class="button-group quiz-controls" aria-label="クイズ操作">
+          <button type="button" id="createQuizButton">クイズ作成</button>
+          <button type="button" id="joinQuizButton">クイズに挑戦</button>
+          <button type="button" id="submitQuizButton" hidden>提出</button>
+          <button type="button" id="endQuizButton" hidden>クイズ終了</button>
+        </div>
       </div>
     </header>
+
+    <section class="status-panel" aria-live="polite">
+      <strong id="statusMessage">x-t グラフ、v-t グラフ、a-t グラフを編集できます。</strong>
+    </section>
 
     <main class="workspace">
       <section class="graphs-panel" aria-label="運動グラフ">
@@ -42,6 +53,13 @@
             <h2>x-t グラフ</h2>
             <div class="graph-meta">
               <p>位置 x [m]</p>
+              <div class="point-adjuster" data-adjuster="x" hidden>
+                <span class="point-value" id="xPointValue">0.0</span>
+                <div class="stepper-buttons">
+                  <button type="button" class="stepper-button" data-step-graph="x" data-step-dir="up">▲</button>
+                  <button type="button" class="stepper-button" data-step-graph="x" data-step-dir="down">▼</button>
+                </div>
+              </div>
               <button type="button" class="erase-point-button" data-erase-graph="x" hidden>消去</button>
             </div>
           </div>
@@ -52,6 +70,13 @@
             <h2>v-t グラフ</h2>
             <div class="graph-meta">
               <p>速度 v [m/s]</p>
+              <div class="point-adjuster" data-adjuster="v" hidden>
+                <span class="point-value" id="vPointValue">0.0</span>
+                <div class="stepper-buttons">
+                  <button type="button" class="stepper-button" data-step-graph="v" data-step-dir="up">▲</button>
+                  <button type="button" class="stepper-button" data-step-graph="v" data-step-dir="down">▼</button>
+                </div>
+              </div>
               <button type="button" class="erase-point-button" data-erase-graph="v" hidden>消去</button>
             </div>
           </div>
@@ -62,6 +87,13 @@
             <h2>a-t グラフ</h2>
             <div class="graph-meta">
               <p>加速度 a [m/s²]</p>
+              <div class="point-adjuster" data-adjuster="a" hidden>
+                <span class="point-value" id="aPointValue">0.0</span>
+                <div class="stepper-buttons">
+                  <button type="button" class="stepper-button" data-step-graph="a" data-step-dir="up">▲</button>
+                  <button type="button" class="stepper-button" data-step-graph="a" data-step-dir="down">▼</button>
+                </div>
+              </div>
               <button type="button" class="erase-point-button" data-erase-graph="a" hidden>消去</button>
             </div>
           </div>
@@ -69,7 +101,7 @@
         </article>
       </section>
 
-      <section class="motion-panel" aria-label="物体の運動表示">
+      <section class="motion-panel" id="motionPanel" aria-label="物体の運動表示">
         <div class="motion-stage motion-stage-full">
           <div class="track">
             <div class="track-toolbar">
@@ -94,6 +126,131 @@
         </div>
       </section>
     </main>
+  </div>
+
+  <div class="overlay is-visible" id="loginOverlay" aria-modal="true" role="dialog">
+    <div class="modal-card modal-card-compact">
+      <p class="eyebrow">Login</p>
+      <h2>ニックネームを入力して開始</h2>
+      <p class="modal-copy">クイズの作成・回答ログにニックネームが記録されます。</p>
+      <label class="field">
+        <span>ニックネーム</span>
+        <input type="text" id="nicknameInput" maxlength="32" placeholder="例: たろう">
+      </label>
+      <div class="modal-actions">
+        <button type="button" id="loginButton" class="primary-button">開始</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay" id="quizSetupOverlay" aria-modal="true" role="dialog">
+    <div class="modal-card">
+      <p class="eyebrow">Quiz Builder</p>
+      <h2>クイズを作成</h2>
+      <div class="option-grid">
+        <div class="option-card">
+          <p class="option-title">回答させるグラフ</p>
+          <label><input type="radio" name="answerGraph" value="x" checked> x-t グラフ</label>
+          <label><input type="radio" name="answerGraph" value="v"> v-t グラフ</label>
+          <label><input type="radio" name="answerGraph" value="a"> a-t グラフ</label>
+        </div>
+        <div class="option-card">
+          <p class="option-title">クイズ中に表示するもの</p>
+          <label class="strobe-switch quiz-visibility-option" for="quizShowX">
+            <input type="checkbox" id="quizShowX" data-quiz-visible="x" checked>
+            <span class="switch-slider"></span>
+            <span class="switch-text">x-t グラフ</span>
+          </label>
+          <label class="strobe-switch quiz-visibility-option" for="quizShowV">
+            <input type="checkbox" id="quizShowV" data-quiz-visible="v" checked>
+            <span class="switch-slider"></span>
+            <span class="switch-text">v-t グラフ</span>
+          </label>
+          <label class="strobe-switch quiz-visibility-option" for="quizShowA">
+            <input type="checkbox" id="quizShowA" data-quiz-visible="a" checked>
+            <span class="switch-slider"></span>
+            <span class="switch-text">a-t グラフ</span>
+          </label>
+          <label class="strobe-switch quiz-visibility-option" for="quizShowMotion">
+            <input type="checkbox" id="quizShowMotion" data-quiz-visible="motion" checked>
+            <span class="switch-slider"></span>
+            <span class="switch-text">車のシミュレーション</span>
+          </label>
+        </div>
+      </div>
+      <p class="modal-copy" id="quizSetupMessage">条件を決めたら、出題に使う運動をグラフで編集します。</p>
+      <div class="modal-actions">
+        <button type="button" id="cancelQuizSetupButton">キャンセル</button>
+        <button type="button" id="beginQuizEditButton" class="primary-button">グラフを編集</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay" id="quizCodeOverlay" aria-modal="true" role="dialog">
+    <div class="modal-card">
+      <p class="eyebrow">Quiz Code</p>
+      <h2>クイズコード</h2>
+      <p class="modal-copy">このコードを共有すると、別の人が同じクイズに挑戦できます。</p>
+      <label class="field">
+        <span>クイズコード</span>
+        <textarea id="quizCodeOutput" rows="5" readonly></textarea>
+      </label>
+      <div class="modal-actions">
+        <button type="button" id="copyQuizCodeButton">コピー</button>
+        <button type="button" id="closeQuizCodeButton" class="primary-button">閉じる</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay" id="quizJoinOverlay" aria-modal="true" role="dialog">
+    <div class="modal-card">
+      <p class="eyebrow">Quiz Challenge</p>
+      <h2>クイズに挑戦</h2>
+      <label class="field">
+        <span>クイズコード</span>
+        <textarea id="quizCodeInput" rows="5" placeholder="ここにクイズコードを貼り付けます"></textarea>
+      </label>
+      <div class="modal-actions">
+        <button type="button" id="cancelQuizJoinButton">キャンセル</button>
+        <button type="button" id="startQuizButton" class="primary-button">クイズスタート</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay" id="submitOverlay" aria-modal="true" role="dialog">
+    <div class="modal-card">
+      <p class="eyebrow">Submit</p>
+      <h2 id="submitOverlayTitle">回答を提出</h2>
+      <p class="modal-copy" id="submitOverlayMessage">回答の自信度を選択してください。</p>
+      <div class="confidence-group" id="confidenceGroup" role="radiogroup" aria-label="回答の自信度"></div>
+      <label class="field is-hidden" id="retryReasonField">
+        <span>回答理由</span>
+        <textarea id="retryReasonInput" rows="4" placeholder="なぜそのように考えたかを書いてください"></textarea>
+      </label>
+      <div class="modal-actions">
+        <button type="button" id="cancelSubmitButton">キャンセル</button>
+        <button type="button" id="confirmSubmitButton" class="primary-button">提出する</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="celebration" id="celebrationLayer" aria-hidden="true">
+    <div class="celebration-card">
+      <h2>正解です！</h2>
+      <p>クイズの条件を正しく再現できました。</p>
+      <button type="button" id="closeCelebrationButton" class="primary-button">閉じる</button>
+    </div>
+  </div>
+
+  <div class="overlay" id="resultOverlay" aria-modal="true" role="dialog">
+    <div class="modal-card modal-card-compact">
+      <p class="eyebrow">Result</p>
+      <h2 id="resultTitle">判定</h2>
+      <p class="modal-copy" id="resultMessage"></p>
+      <div class="modal-actions">
+        <button type="button" id="closeResultButton" class="primary-button">グラフに戻る</button>
+      </div>
+    </div>
   </div>
 
   <script src="app.js"></script>
